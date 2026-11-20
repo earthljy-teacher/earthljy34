@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대기 안정도 판정실 — 연직 운동과 구름, 단열선도로 안정도 판단하기</title>
+<style>
+:root{
+  --font:'a시네마L','a시네마','Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  --c-temp:#e8590c; --c-dew:#1c7ed6; --c-dry:#e03131; --c-moist:#2f9e44; --c-lcl:#ae3ec9;
+  --c-ok:#2b8a3e; --c-bad:#e03131; --c-acc:#f08c00; --c-sky:#0b2545; --c-sky2:#13315c;
+  --c-ink:#212529; --c-sub:#5c677d; --c-line:#dee2e6; --c-card:#ffffff; --c-bg:#eef3f9;
+}
+*{box-sizing:border-box; font-family:var(--font); font-weight:400 !important;}
+html,body{margin:0; background:var(--c-bg); color:var(--c-ink);}
+button,input,select{font-family:var(--font);}
+h1,h2,h3,h4,b,strong{font-weight:400 !important; margin:0;}
+
+/* ---------- 헤더 ---------- */
+header{background:linear-gradient(120deg,var(--c-sky),#1d4e89 60%,#3a7ca5); color:#fff; padding:12px 22px 0; position:relative;}
+.top{display:flex; align-items:center; gap:16px;}
+.title-block{flex:1;}
+.title-block .kicker{font-size:13px; color:#ffd43b; letter-spacing:1px;}
+.title-block h1{font-size:25px; margin-top:2px;}
+.title-block h1 span{color:#8ce99a;}
+.brand{display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.95); color:var(--c-ink); padding:5px 12px 5px 6px; border-radius:14px;}
+.brand img{width:52px; height:52px; display:block;}
+.brand .mail{font-size:13px; color:#1d4e89; line-height:1.35;}
+.brand .mail small{display:block; color:#868e96; font-size:11px;}
+.statusbar{display:flex; align-items:center; gap:14px; margin-top:10px; font-size:13px; color:#d0ebff;}
+.xpbar{flex:0 0 260px; height:10px; background:rgba(255,255,255,.18); border-radius:6px; overflow:hidden;}
+.xpbar i{display:block; height:100%; width:0; background:linear-gradient(90deg,#ffd43b,#8ce99a); transition:width .5s;}
+.tabs{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+.tab{border:none; background:rgba(255,255,255,.14); color:#e7f5ff; padding:10px 16px 11px; border-radius:12px 12px 0 0; cursor:pointer; font-size:15px; display:flex; align-items:center; gap:8px; transition:.2s;}
+.tab:hover:not(.locked){background:rgba(255,255,255,.26);}
+.tab.active{background:var(--c-bg); color:var(--c-sky);}
+.tab.locked{opacity:.45; cursor:not-allowed;}
+.tab .num{display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:#ffd43b; color:#0b2545; font-size:13px;}
+.tab.done .num{background:#8ce99a;}
+.tab.locked .num{background:#adb5bd;}
+
+/* ---------- 레이아웃 ---------- */
+main{padding:16px 22px 40px;}
+.stage{display:none; grid-template-columns:minmax(0,1fr) 370px; gap:16px; align-items:start;}
+.stage.show{display:grid;}
+.card{background:var(--c-card); border-radius:16px; box-shadow:0 2px 10px rgba(11,37,69,.08); padding:14px 16px;}
+.mission-head{display:flex; gap:14px; align-items:center; margin-bottom:12px;}
+.npc{flex:0 0 58px; height:58px; border-radius:50%; background:radial-gradient(circle at 35% 35%,#fff,#d0ebff 70%); display:grid; place-items:center; font-size:32px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.06);}
+.mission-head .say{font-size:15px; line-height:1.6;}
+.mission-head .say .who{color:var(--c-dew); font-size:13px; display:block;}
+.cvwrap{background:#fff; border-radius:16px; box-shadow:0 2px 10px rgba(11,37,69,.08); padding:10px 12px 12px;}
+.cvtitle{font-size:14px; color:var(--c-sub); margin:0 0 6px 2px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
+canvas{display:block; width:100%; touch-action:none;}
+.s1grid{display:grid; grid-template-columns:260px minmax(0,1fr); gap:14px;}
+#s1scene{height:540px; cursor:ns-resize; border-radius:12px;}
+#s1diag{height:540px;}
+#s2diag{height:580px; cursor:crosshair;}
+#s3scene{height:280px; border-radius:12px;}
+#s3diag{height:400px;}
+.s3grid{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:14px; margin-top:14px;}
+#s4diag{height:520px; cursor:crosshair;}
+.a1grid{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:14px;}
+#a1diag,#a1scene{height:540px;}
+#a1scene{border-radius:12px;}
+#a2diag{height:600px;}
+@media (max-width:1100px){ .a1grid{grid-template-columns:1fr;} }
+#s4smoke{height:520px; border-radius:12px;}
+.s4grid{display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:14px;}
+
+.refs{display:flex; gap:12px; flex-wrap:wrap; font-size:13px; margin-top:8px;}
+.refs label{display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--c-sub);}
+.sw{display:inline-block; width:26px; height:0; border-top:2px dashed;}
+
+/* ---------- 패널 ---------- */
+.panel{display:flex; flex-direction:column; gap:12px;}
+.panel h3{font-size:16px; color:var(--c-sky2); margin-bottom:8px; display:flex; align-items:center; gap:6px;}
+.ctrl{margin:8px 0;}
+.ctrl .lab{display:flex; justify-content:space-between; font-size:14px; margin-bottom:4px;}
+.ctrl .lab .v{font-size:16px;}
+input[type=range]{width:100%; accent-color:#1d4e89;}
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.btn{border:none; border-radius:10px; padding:9px 14px; font-size:14px; cursor:pointer; background:#1d4e89; color:#fff; transition:.15s; box-shadow:0 2px 0 rgba(0,0,0,.15);}
+.btn:hover:not(:disabled){filter:brightness(1.12); transform:translateY(-1px);}
+.btn:disabled{background:#ced4da; color:#868e96; cursor:not-allowed; box-shadow:none;}
+.btn.ghost{background:#e7f5ff; color:#1d4e89;}
+.btn.orange{background:var(--c-temp);} .btn.blue{background:var(--c-dew);} .btn.green{background:var(--c-ok);} .btn.purple{background:var(--c-lcl);} .btn.gray{background:#868e96;}
+.btn.sel{outline:3px solid #ffd43b;}
+.btn.sm{padding:6px 10px; font-size:13px;}
+input[type=number],input[type=text]{border:1.5px solid var(--c-line); border-radius:9px; padding:7px 9px; font-size:14px; width:100px;}
+input[type=number]:focus,input[type=text]:focus{outline:none; border-color:#1d4e89;}
+.readout{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.ro{background:#f8f9fa; border-radius:10px; padding:8px 10px;}
+.ro .k{font-size:12px; color:var(--c-sub);} .ro .val{font-size:20px;}
+.c-temp{color:var(--c-temp);} .c-dew{color:var(--c-dew);} .c-dry{color:var(--c-dry);} .c-moist{color:var(--c-moist);} .c-lcl{color:var(--c-lcl);} .c-ok{color:var(--c-ok);} .c-bad{color:var(--c-bad);} .c-acc{color:var(--c-acc);} .c-sky{color:#1d4e89;}
+.missions{list-style:none; padding:0; margin:0; font-size:14px;}
+.missions li{display:flex; gap:8px; align-items:flex-start; padding:6px 0; border-bottom:1px dashed var(--c-line); line-height:1.45;}
+.missions li:last-child{border-bottom:none;}
+.missions li .ck{flex:0 0 20px; height:20px; border-radius:6px; border:2px solid #adb5bd; display:grid; place-items:center; font-size:12px; color:#fff; margin-top:1px;}
+.missions li.done .ck{background:var(--c-ok); border-color:var(--c-ok);}
+.missions li.done .txt{color:var(--c-ok);}
+.missions li.bonus .ck{border-style:dashed; border-color:var(--c-acc);}
+.missions li.bonus.done .ck{background:var(--c-acc); border-color:var(--c-acc);}
+.fb{border-radius:12px; padding:10px 12px; font-size:14px; line-height:1.6; background:#f1f3f5; min-height:44px;}
+.fb.ok{background:#ebfbee; border-left:4px solid var(--c-ok);}
+.fb.bad{background:#fff5f5; border-left:4px solid var(--c-bad);}
+.fb.info{background:#e7f5ff; border-left:4px solid var(--c-dew);}
+.fb ul{margin:6px 0 0; padding-left:18px;} .fb li{margin:3px 0;}
+table.rec{width:100%; border-collapse:collapse; font-size:13px; margin-top:6px;}
+table.rec th,table.rec td{border-bottom:1px solid var(--c-line); padding:5px 4px; text-align:center;}
+table.rec th{color:var(--c-sub); background:#f8f9fa;}
+#s1chart{height:150px; margin-top:8px;}
+.datatable{width:100%; border-collapse:collapse; font-size:12.5px;}
+.datatable td,.datatable th{border:1px solid var(--c-line); padding:3px 2px; text-align:center;}
+.datatable th{background:#f1f3f5; color:var(--c-sub);}
+.datatable td.ok{background:#ebfbee; color:var(--c-ok);}
+.datatable td.bad{background:#fff5f5; color:var(--c-bad);}
+.layer{border:1.5px solid var(--c-line); border-radius:12px; padding:9px 10px; margin-top:8px;}
+.layer.done{border-color:var(--c-ok); background:#f4fcf5;}
+.layer .lt{font-size:14px; margin-bottom:6px;}
+.chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+.preset-btns{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+.preset-btns .btn{font-size:13px; padding:8px 6px; position:relative;}
+.preset-btns .btn .st{font-size:11px; display:block; opacity:.85;}
+.note{font-size:12.5px; color:var(--c-sub); line-height:1.55; margin-top:6px;}
+.formula{background:#fff9db; border-radius:10px; padding:8px 10px; font-size:14px; text-align:center; color:#5c3c00; margin-top:6px;}
+
+/* ---------- 오버레이 / 토스트 ---------- */
+.overlay{position:fixed; inset:0; background:rgba(11,37,69,.72); display:grid; place-items:center; z-index:50; padding:20px;}
+.overlay.hide{display:none;}
+.modal{background:#fff; border-radius:22px; max-width:640px; width:100%; padding:26px 28px; box-shadow:0 20px 60px rgba(0,0,0,.35); position:relative; overflow:hidden;}
+.modal h2{font-size:24px; color:var(--c-sky2); margin-bottom:8px;}
+.modal p{line-height:1.7; font-size:15px; margin:8px 0;}
+.modal .stagelist{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0;}
+.modal .stagelist div{background:#f1f3f5; border-radius:12px; padding:9px 11px; font-size:13.5px; line-height:1.5;}
+.modal .stagelist div span{color:var(--c-dew); display:block; font-size:12px;}
+.toast{position:fixed; right:22px; bottom:22px; background:#0b2545; color:#fff; padding:12px 18px; border-radius:14px; font-size:15px; box-shadow:0 10px 30px rgba(0,0,0,.3); transform:translateY(140%); transition:.35s; z-index:60; max-width:380px; line-height:1.5;}
+.toast.show{transform:translateY(0);}
+.toast .em{color:#ffd43b;}
+.confetti{position:absolute; width:8px; height:14px; top:-20px; animation:fall 2.6s linear forwards;}
+@keyframes fall{to{transform:translateY(560px) rotate(720deg); opacity:.2;}}
+
+/* ---------- 리포트 ---------- */
+#stage3{grid-template-columns:1fr;}
+.report{max-width:1000px; margin:0 auto; background:#fff; border-radius:20px; box-shadow:0 4px 18px rgba(11,37,69,.12); overflow:hidden;}
+.rep-head{background:linear-gradient(120deg,var(--c-sky),#1d4e89 60%,#3a7ca5); color:#fff; padding:22px 26px; display:flex; align-items:center; gap:20px;}
+.rep-head .t{flex:1;} .rep-head .t .k{color:#ffd43b; font-size:13px;} .rep-head .t h2{font-size:26px; margin-top:4px;}
+.rep-head .t .who{margin-top:8px; font-size:14px; color:#d0ebff;}
+.grade{width:110px; height:110px; border-radius:50%; background:#fff; display:grid; place-items:center; text-align:center; box-shadow:0 0 0 6px rgba(255,255,255,.25);}
+.grade .g{font-size:54px; line-height:1;} .grade .s{font-size:13px; color:var(--c-sub);}
+.rep-body{padding:20px 26px 26px;}
+.rep-sec{margin-bottom:20px;}
+.rep-sec h3{font-size:18px; color:var(--c-sky2); margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #e7f5ff;}
+.bars{display:grid; gap:10px;}
+.bar{display:grid; grid-template-columns:190px 1fr 70px; gap:10px; align-items:center; font-size:14px;}
+.bar .track{height:14px; background:#f1f3f5; border-radius:8px; overflow:hidden;}
+.bar .track i{display:block; height:100%; border-radius:8px; background:linear-gradient(90deg,#4dabf7,#1d4e89);}
+.fbpara{background:#f8f9fa; border-radius:12px; padding:12px 14px; margin-bottom:10px; line-height:1.75; font-size:14.5px;}
+.fbpara .st{color:#1d4e89; font-size:15px; display:block; margin-bottom:2px;}
+.improve{list-style:none; padding:0; margin:0;}
+.improve li{display:flex; gap:10px; align-items:center; padding:10px 12px; background:#fff9db; border-radius:12px; margin-bottom:8px; font-size:14px; line-height:1.5;}
+.improve li .pt{flex:0 0 auto; color:var(--c-acc); font-size:13px;}
+.improve li .msg{flex:1;}
+.rep-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:18px 0 6px;}
+.gradeinfo{font-size:13px; color:var(--c-sub); margin-top:6px;}
+
+@media (max-width:1100px){ .stage{grid-template-columns:1fr;} .s1grid{grid-template-columns:200px 1fr;} .s3grid,.s4grid{grid-template-columns:1fr;} }
+@media print{
+  header,.tabs,.toast,.overlay,.stage:not(#stage3),.rep-actions,.improve .btn{display:none !important;}
+  body,main{background:#fff; padding:0;}
+  #stage3{display:block !important;}
+  .report{box-shadow:none; border-radius:0; max-width:none;}
+  .rep-head,.grade,.bar .track i,.fbpara,.improve li{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top">
+    <div class="title-block">
+      <div class="kicker">지구시스템과학 · Ⅲ. 강수 과정과 대기의 운동 · 대기 안정도</div>
+      <h1>대기 안정도 판정실 <span>— 대기는 안정할까, 불안정할까?</span></h1>
+    </div>
+    <div class="brand">
+      <img id="logoImg" alt="EARTH LJY 로고">
+      <div class="mail">EARTH LJY<small>earthljy@ai.jne.kr</small></div>
+    </div>
+  </div>
+  <div class="statusbar">
+    <span id="playerName">연구원</span>
+    <div class="xpbar"><i id="xpFill"></i></div>
+    <span id="xpText">진행도 0 / 2 단계</span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-s="1"><span class="num">1</span>연직 운동과 구름</button>
+    <button class="tab locked" data-s="2"><span class="num">2</span>대기 안정도 판단</button>
+    <button class="tab locked" data-s="3"><span class="num">★</span>미션 성공</button>
+  </nav>
+</header>
+
+<main>
+<!-- ======================= 1단계 : 연직 운동과 구름 ======================= -->
+<section class="stage show" id="stage1">
+  <div>
+    <div class="card mission-head">
+      <div class="npc">🎈</div>
+      <div class="say"><span class="who">구름 박사의 브리핑</span>
+        대기 안정도에 따라 공기 덩어리는 어떻게 움직이고, 어떤 구름이 만들어질까요? <span class="c-dew">절대 안정</span>, <span class="c-acc">조건부 불안정</span>, <span class="c-bad">절대 불안정</span> 세 가지 대기에서 공기 덩어리를 밀어 올려 보세요. 밀어 올린 공기 덩어리가 주변 공기보다 <span class="c-sky">차가우면 되돌아오고</span>, <span class="c-bad">따뜻하면 계속 올라가요</span>.</div>
+    </div>
+    <div class="a1grid">
+      <div class="cvwrap"><div class="cvtitle"><span>단열선도 — 주변 공기(환경 기온선)와 공기 덩어리 비교</span><span><span style="color:#7048e8">━ 환경 기온선</span></span></div><canvas id="a1diag"></canvas><div class="refs" id="a1refs"></div></div>
+      <div class="cvwrap"><div class="cvtitle"><span>하늘 단면 — 연직 운동과 구름</span></div><canvas id="a1scene"></canvas></div>
+    </div>
+  </div>
+  <aside class="panel">
+    <div class="card">
+      <h3>🌍 대기 상태 선택</h3>
+      <div class="preset-btns" id="a1states" style="grid-template-columns:1fr 1fr 1fr"></div>
+      <div class="fb info" id="a1desc" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h3>🧪 공기 덩어리 밀어 올리기</h3>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="a1sat" style="margin-top:4px"><span>포화된 공기 덩어리 (구름 속 공기, 습윤 단열 감률 5 ℃/km)</span></label>
+      <div class="note" style="margin-top:2px">체크하지 않으면 불포화 공기 덩어리 (건조 단열 감률 10 ℃/km)</div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="a1push">⬆ 지표에서 0.5 km 밀어 올리기</button></div>
+      <div class="fb" id="a1fb" style="margin-top:8px">대기 상태를 고르고 공기 덩어리를 밀어 올려 보세요.</div>
+    </div>
+    <div class="card">
+      <h3>📒 정리 노트</h3>
+      <table class="rec" id="a1note"></table>
+      <div class="note">실험을 할 때마다 정리 노트가 채워져요.</div>
+    </div>
+    <div class="card"><h3>🎯 1단계 미션</h3><ul class="missions" id="a1m"></ul></div>
+  </aside>
+</section>
+
+<!-- ======================= 2단계 : 안정도 판단 ======================= -->
+<section class="stage" id="stage2">
+  <div>
+    <div class="card mission-head">
+      <div class="npc">⚖️</div>
+      <div class="say"><span class="who">구름 박사의 브리핑</span>
+        관측소에서 높이별 기온을 단열선도에 미리 그려 보냈어요. 각 기층의 <span style="color:#7048e8">환경 기온선</span> 기울기를 <span class="c-dry">건조 단열선</span>, <span class="c-moist">습윤 단열선</span>과 비교해 <span class="c-dew">절대 안정</span>, <span class="c-acc">조건부 불안정</span>, <span class="c-bad">절대 불안정</span> 중 어떤 상태인지 판단해 보세요.</div>
+    </div>
+    <div class="cvwrap"><div class="cvtitle"><span id="a2title">단열선도</span><span><span style="color:#7048e8">━ 환경 기온선</span> &nbsp;<span class="c-dry">━ 건조 단열선</span> &nbsp;<span class="c-moist">━ 습윤 단열선</span></span></div><canvas id="a2diag"></canvas>
+      <div class="refs" id="a2refs"></div>
+      <div class="refs"><label><input type="checkbox" id="a2cmp" checked> 판단할 기층에 비교용 단열선 그리기 (기층 아래 끝에서 출발)</label></div>
+    </div>
+  </div>
+  <aside class="panel">
+    <div class="card"><h3>📡 관측 사례 선택</h3><div class="preset-btns" id="a2cases"></div><div class="note" id="a2sub"></div></div>
+    <div class="card"><h3>⚖️ 기층별 안정도 판단</h3><div id="a2layers"></div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="a2reset">이 사례 다시 풀기</button></div></div>
+    <div class="card">
+      <h3>📏 판단 기준</h3>
+      <div class="note" style="margin-top:0;line-height:1.75">
+        · 환경 기온선이 <span class="c-moist">습윤 단열선</span>보다 더 서 있음(기온이 천천히 낮아짐) → <span class="c-dew">절대 안정</span><br>
+        · 환경 기온선이 <span class="c-dry">건조 단열선</span>보다 더 누워 있음(기온이 빨리 낮아짐) → <span class="c-bad">절대 불안정</span><br>
+        · 두 단열선 사이 → <span class="c-acc">조건부 불안정</span><br>
+        · 높이 올라갈수록 기온이 높아지는 <span class="c-sky">역전층</span> → 매우 안정(절대 안정)</div>
+    </div>
+    <div class="card"><h3>🎯 2단계 미션</h3><ul class="missions" id="a2m"></ul></div>
+  </aside>
+</section>
+
+<!-- ======================= 미션 성공 ======================= -->
+<section class="stage" id="stage3">
+  <div class="report" id="report"></div>
+</section>
+</main>
+
+<!-- 시작 브리핑 -->
+<div class="overlay" id="intro">
+  <div class="modal">
+    <h2>🎈 대기 안정도 판정실에 오신 것을 환영해요!</h2>
+    <p>여러분은 기상 연구소의 대기 안정도 판정관이에요. 대기 안정도에 따라 공기의 <span class="c-sky">연직 운동</span>과 <span class="c-sky">구름의 형태</span>가 어떻게 달라지는지 알아보고, 단열선도에 그려진 기온선으로 대기 안정도를 판단하는 것이 임무예요.</p>
+    <div class="stagelist">
+      <div><span>1단계</span>안정도별 연직 운동과 구름 — 적운형 vs 층운형</div>
+      <div><span>2단계</span>단열선도로 대기 안정도 판단하기</div>
+    </div>
+    <p class="note">각 단계의 미션을 완료하면 다음 단계가 열리고, 마지막에 <span class="c-acc">미션 성공</span> 리포트에서 수행 과정 평가(A~F)를 받을 수 있어요.</p>
+    <div class="row" style="margin-top:12px"><span>연구원 이름(학번)</span><input type="text" id="nameIn" style="width:200px" placeholder="예: 20315 홍길동"><button class="btn green" id="startBtn">판정 시작 ▶</button></div>
+  </div>
+</div>
+
+<!-- 단계 완료 모달 -->
+<div class="overlay hide" id="clearModal">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:54px">🏅</div>
+    <h2 id="clearTitle">1단계 완료!</h2>
+    <p id="clearMsg"></p>
+    <div class="row" style="justify-content:center; margin-top:10px"><button class="btn ghost" id="clearStay">이 단계 더 탐구하기</button><button class="btn green" id="clearGo">다음 단계로 ▶</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   공통 설정
+   ========================================================= */
+const LOGO="data:image/png;base64,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";
+const FONT="'a시네마L','a시네마','Noto Sans KR','Malgun Gothic',sans-serif";
+const C={temp:'#e8590c',dew:'#1c7ed6',dry:'#e03131',moist:'#2f9e44',dewRef:'#1c7ed6',lcl:'#ae3ec9',ok:'#2b8a3e',bad:'#e03131',grid:'#edf0f3',axis:'#495057',sub:'#5c677d'};
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=(v,d=1)=>(Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d);
+const es=T=>6.112*Math.exp(17.62*T/(243.12+T));
+const RH=(T,Td)=>clamp(es(Td)/es(T)*100,0,100);
+const logoImg=new Image(); logoImg.src=LOGO; $('logoImg').src=LOGO;
+let playerName='연구원';
+let dirty=true; const mark=()=>{dirty=true;};
+let curStage=1;
+
+/* 불포화: 기온 10 ℃/km, 이슬점 2 ℃/km  / 포화: 기온=이슬점, 5 ℃/km */
+function parcelAt(T,Td,h){
+  const H=125*(T-Td);
+  if(h<=H) return {t:T-0.01*h, td:Td-0.002*h, sat:false, H};
+  const t=T-0.01*H-0.005*(h-H); return {t, td:t, sat:true, H};
+}
+
+function toast(msg){ const t=$('toast'); t.innerHTML=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
+
+/* =========================================================
+   단열선도 그리기 도구
+   ========================================================= */
+function Diagram(cv,cfg){ this.cv=cv; this.cfg=cfg; this.ctx=cv.getContext('2d'); }
+Diagram.prototype.fit=function(){
+  const r=this.cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  this.W=Math.max(220,r.width); this.H=Math.max(200,r.height);
+  if(this.cv.width!==Math.round(this.W*dpr)||this.cv.height!==Math.round(this.H*dpr)){ this.cv.width=Math.round(this.W*dpr); this.cv.height=Math.round(this.H*dpr); }
+  this.ctx.setTransform(dpr,0,0,dpr,0,0);
+  this.L=64; this.R=this.W-16; this.T=16; this.B=this.H-46;
+};
+Diagram.prototype.x=function(t){return this.L+(t-this.cfg.tMin)/(this.cfg.tMax-this.cfg.tMin)*(this.R-this.L);};
+Diagram.prototype.y=function(h){return this.B-(h/this.cfg.hMax)*(this.B-this.T);};
+Diagram.prototype.tOf=function(x){return this.cfg.tMin+(x-this.L)/(this.R-this.L)*(this.cfg.tMax-this.cfg.tMin);};
+Diagram.prototype.hOf=function(y){return (this.B-y)/(this.B-this.T)*this.cfg.hMax;};
+Diagram.prototype.inside=function(x,y){return x>=this.L-6&&x<=this.R+6&&y>=this.T-6&&y<=this.B+6;};
+Diagram.prototype.base=function(refs){
+  this.fit(); const c=this.ctx, cf=this.cfg;
+  c.clearRect(0,0,this.W,this.H); c.fillStyle='#fff'; c.fillRect(0,0,this.W,this.H);
+  c.setLineDash([]); c.lineWidth=1; c.strokeStyle=C.grid;
+  for(let t=Math.ceil(cf.tMin/cf.tTick)*cf.tTick; t<=cf.tMax+1e-9; t+=cf.tTick){ c.beginPath(); c.moveTo(this.x(t),this.T); c.lineTo(this.x(t),this.B); c.stroke(); }
+  for(let h=0; h<=cf.hMax+1e-9; h+=cf.hTick){ c.beginPath(); c.moveTo(this.L,this.y(h)); c.lineTo(this.R,this.y(h)); c.stroke(); }
+  if(refs){
+    c.save(); c.beginPath(); c.rect(this.L,this.T,this.R-this.L,this.B-this.T); c.clip();
+    const fam=(rate,step,color,dash,w)=>{ c.strokeStyle=color; c.setLineDash(dash); c.lineWidth=w; const drop=rate*cf.hMax;
+      for(let t0=Math.floor(cf.tMin/step)*step; t0<=cf.tMax+drop+step; t0+=step){ c.beginPath(); c.moveTo(this.x(t0),this.y(0)); c.lineTo(this.x(t0-drop),this.y(cf.hMax)); c.stroke(); } };
+    if(refs.dry) fam(0.01,cf.refStep,'rgba(224,49,49,.42)',[7,5],1.2);
+    if(refs.moist) fam(0.005,cf.refStep,'rgba(47,158,68,.48)',[11,4,2,4],1.2);
+    if(refs.dew) fam(0.002,cf.refStep,'rgba(28,126,214,.45)',[2,4],1.5);
+    c.restore();
+  }
+  c.setLineDash([]); c.strokeStyle=C.axis; c.lineWidth=1.4;
+  c.beginPath(); c.moveTo(this.L,this.T); c.lineTo(this.L,this.B); c.lineTo(this.R,this.B); c.stroke();
+  c.fillStyle=C.sub; c.font=`12px ${FONT}`; c.textAlign='center'; c.textBaseline='top';
+  const lt=cf.tLabel||cf.tTick;
+  for(let t=Math.ceil(cf.tMin/lt)*lt; t<=cf.tMax+1e-9; t+=lt){ c.fillText(Math.round(t*10)/10, this.x(t), this.B+5); }
+  c.textAlign='right'; c.textBaseline='middle';
+  const lh=cf.hLabel||cf.hTick;
+  for(let h=0; h<=cf.hMax+1e-9; h+=lh){ c.fillText(cf.km?(h/1000).toFixed(1):Math.round(h), this.L-7, this.y(h)); }
+  c.font=`13px ${FONT}`; c.fillStyle=C.axis; c.textAlign='center'; c.textBaseline='bottom';
+  c.fillText('기온(℃)', (this.L+this.R)/2, this.H-4);
+  c.save(); c.translate(15,(this.T+this.B)/2); c.rotate(-Math.PI/2); c.textBaseline='middle'; c.fillText(cf.km?'높이(km)':'높이(m)',0,0); c.restore();
+};
+Diagram.prototype.poly=function(pts,color,w,dash){ if(pts.length<2) return; const c=this.ctx; c.save(); c.beginPath(); c.rect(this.L,this.T-4,this.R-this.L,this.B-this.T+8); c.clip(); c.strokeStyle=color; c.lineWidth=w||2.5; c.setLineDash(dash||[]); c.lineJoin='round'; c.beginPath(); pts.forEach((p,i)=>{const X=this.x(p[0]),Y=this.y(p[1]); i?c.lineTo(X,Y):c.moveTo(X,Y);}); c.stroke(); c.restore(); };
+Diagram.prototype.dot=function(t,h,color,r,ring){ const c=this.ctx; c.setLineDash([]); c.beginPath(); c.arc(this.x(t),this.y(h),r||5,0,Math.PI*2); c.fillStyle=color; c.fill(); if(ring){c.lineWidth=2.5; c.strokeStyle=ring; c.stroke();} };
+Diagram.prototype.hline=function(h,color,label,dash){ const c=this.ctx; c.save(); c.strokeStyle=color; c.setLineDash(dash||[6,4]); c.lineWidth=1.6; c.beginPath(); c.moveTo(this.L,this.y(h)); c.lineTo(this.R,this.y(h)); c.stroke(); if(label){ c.setLineDash([]); c.font=`12px ${FONT}`; const w=c.measureText(label).width+10; c.fillStyle='rgba(255,255,255,.9)'; c.fillRect(this.R-w-4,this.y(h)-19,w,16); c.fillStyle=color; c.textAlign='right'; c.textBaseline='middle'; c.fillText(label,this.R-9,this.y(h)-11);} c.restore(); };
+Diagram.prototype.label=function(t,h,text,color,dx,dy,align){ const c=this.ctx; c.font=`12.5px ${FONT}`; c.textAlign=align||'left'; c.textBaseline='middle'; const X=this.x(t)+(dx||8), Y=this.y(h)+(dy||0); const w=c.measureText(text).width; const bx=align==='right'?X-w-4:X-4; c.fillStyle='rgba(255,255,255,.88)'; c.fillRect(bx,Y-9,w+8,18); c.fillStyle=color; c.fillText(text,X,Y); };
+
+Diagram.prototype.hoverTip=function(t,h,text,color){
+  const c=this.ctx, X=this.x(t), Y=this.y(h); c.save(); c.setLineDash([]);
+  c.font=`13px ${FONT}`; const w=c.measureText(text).width+16, bh=24;
+  let bx=X+14, by=Y-bh-10; if(bx+w>this.R) bx=X-w-14; if(by<this.T) by=Y+12;
+  c.fillStyle='rgba(33,37,41,.9)'; c.beginPath(); if(c.roundRect) c.roundRect(bx,by,w,bh,7); else c.rect(bx,by,w,bh); c.fill();
+  c.fillStyle=color; c.fillRect(bx,by,4,bh);
+  c.fillStyle='#fff'; c.textAlign='left'; c.textBaseline='middle'; c.fillText(text,bx+10,by+bh/2+1);
+  /* 축 위 값 표시 */
+  c.font=`11.5px ${FONT}`; const tt=fmt(t)+' ℃', tw=c.measureText(tt).width+10;
+  c.fillStyle=color; c.fillRect(X-tw/2,this.B+3,tw,17); c.fillStyle='#fff'; c.textAlign='center'; c.fillText(tt,X,this.B+12);
+  const ht=this.cfg.km?(h/1000).toFixed(1)+' km':Math.round(h)+' m', hw=c.measureText(ht).width+10;
+  c.fillStyle=color; c.fillRect(this.L+2,Y-9,hw,18); c.fillStyle='#fff'; c.fillText(ht,this.L+2+hw/2,Y);
+  c.restore();
+};
+function makeRefToggles(id,refs){
+  const box=$(id); box.innerHTML='';
+  [['dry','건조 단열선 (10 ℃/km)','#e03131'],['moist','습윤 단열선 (5 ℃/km)','#2f9e44'],['dew','이슬점 감률선 (2 ℃/km)','#1c7ed6']].forEach(([k,txt,col])=>{
+    const lab=document.createElement('label');
+    lab.innerHTML=`<input type="checkbox" ${refs[k]?'checked':''}><span class="sw" style="border-color:${col}"></span>${txt}`;
+    lab.querySelector('input').onchange=e=>{refs[k]=e.target.checked; mark();};
+    box.appendChild(lab);
+  });
+}
+function canvasPos(cv,e){ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function fitCanvas(cv){ const r=cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1; const W=Math.max(100,r.width),H=Math.max(100,r.height); if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);} const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); return {c,W,H}; }
+function renderMissions(id,list){ $(id).innerHTML=list.map(m=>`<li class="${m.done?'done':''} ${m.bonus?'bonus':''}"><span class="ck">${m.done?'✓':''}</span><span class="txt">${m.bonus?'<span class="c-acc">[도전]</span> ':''}${m.t}</span></li>`).join(''); }
+function cloudPuff(c,x,y,r,alpha){ c.fillStyle=`rgba(255,255,255,${alpha==null?0.95:alpha})`; [[0,0,1],[-.8,.25,.7],[.8,.25,.72],[-.4,-.45,.68],[.45,-.4,.62]].forEach(([dx,dy,s])=>{c.beginPath(); c.arc(x+dx*r,y+dy*r,r*s,0,Math.PI*2); c.fill();}); }
+
+/* =========================================================
+   공통 자료
+   ========================================================= */
+const STAB={stable:{n:'절대 안정',col:'#1c7ed6',bg:'rgba(208,235,255,.55)'},conditional:{n:'조건부 불안정',col:'#f08c00',bg:'rgba(255,243,191,.6)'},unstable:{n:'절대 불안정',col:'#e03131',bg:'rgba(255,227,227,.6)'}};
+const INFO={
+  stable:{cond:'기온 감률 &lt; 습윤 단열 감률(5 ℃/km)',motion:'억제됨 (밀어 올려도 되돌아옴)',cloud:'층운형',weather:'구름이 생기면 옆으로 넓게 퍼지는 층운형 구름, 약한 비가 오래 내림'},
+  conditional:{cond:'습윤 단열 감률 &lt; 기온 감률 &lt; 건조 단열 감률',motion:'불포화 공기는 억제, 포화 공기는 활발',cloud:'포화되면 적운형',weather:'불포화 공기는 안정하지만, 공기가 포화되면 위로 솟는 적운형 구름이 발달할 수 있음'},
+  unstable:{cond:'기온 감률 &gt; 건조 단열 감률(10 ℃/km)',motion:'활발함 (밀어 올리면 계속 상승)',cloud:'적운형',weather:'위로 높이 솟는 적운형 구름, 소나기·뇌우·우박이 생기기 쉬움'}};
+
+/* =========================================================
+   1단계 : 안정도별 연직 운동과 구름
+   ========================================================= */
+const ST1={stable:{lapse:3},conditional:{lapse:7},unstable:{lapse:12}};
+const A1={st:'stable',anim:null,refs:{dry:true,moist:true,dew:false},flags:{stable:false,unstable:false,cu:false,cs:false},pushes:0,seen:{},done:false};
+const da1=new Diagram($('a1diag'),{tMin:-20,tMax:30,hMax:3200,tTick:5,hTick:500,km:true,refStep:5});
+const env1=(st,h)=>20-ST1[st].lapse*h/1000;
+function a1UI(){
+  $('a1states').innerHTML=Object.keys(ST1).map(k=>`<button class="btn ${k===A1.st?'':'ghost'}" data-k="${k}" style="${k===A1.st?'background:'+STAB[k].col:''}">${STAB[k].n}<span class="st">${ST1[k].lapse} ℃/km</span></button>`).join('');
+  $('a1states').querySelectorAll('button').forEach(b=>b.onclick=()=>{ A1.st=b.dataset.k; A1.anim=null; a1UI(); mark(); });
+  $('a1desc').innerHTML=`<span style="color:${STAB[A1.st].col}">${STAB[A1.st].n}</span> 대기: 주변 공기의 기온이 높이 1 km마다 <span class="c-acc">${ST1[A1.st].lapse} ℃</span>씩 낮아져요. (${INFO[A1.st].cond})`;
+  const F=A1.flags;
+  $('a1note').innerHTML='<tr><th>대기 상태</th><th>연직 운동</th><th>구름 형태</th></tr>'+Object.keys(ST1).map(k=>{ const ok=A1.seen[k];
+    return `<tr><td style="color:${STAB[k].col}">${STAB[k].n}</td><td>${ok?INFO[k].motion:'?'}</td><td>${ok?`<span class="${k==='stable'?'c-dew':'c-bad'}">${INFO[k].cloud}</span>`:'?'}</td></tr>`; }).join('');
+  renderMissions('a1m',[
+    {t:'<span class="c-dew">절대 안정</span> 대기에서 공기 덩어리 밀어 올리기',done:F.stable},
+    {t:'<span class="c-bad">절대 불안정</span> 대기에서 공기 덩어리 밀어 올리기',done:F.unstable},
+    {t:'<span class="c-acc">조건부 불안정</span> 대기에서 <span class="c-sky">불포화</span> 공기 덩어리 밀어 올리기',done:F.cu},
+    {t:'<span class="c-acc">조건부 불안정</span> 대기에서 <span class="c-sky">포화</span> 공기 덩어리 밀어 올리기',done:F.cs}
+  ]);
+  checkStage(1);
+}
+function a1Push(){
+  const st=A1.st, sat=$('a1sat').checked, rate=sat?5:10, h1=500;
+  const tp=20-rate*h1/1000, te=env1(st,h1), warmer=tp>te;
+  A1.anim={st,sat,rate,warmer,start:performance.now()}; A1.pushes++;
+  if(st==='stable') A1.flags.stable=true; if(st==='unstable') A1.flags.unstable=true;
+  if(st==='conditional'){ if(sat) A1.flags.cs=true; else A1.flags.cu=true; }
+  if(st!=='conditional'||(A1.flags.cu&&A1.flags.cs)) A1.seen[st]=true;
+  let m=`${sat?'포화':'불포화'} 공기 덩어리를 0.5 km 밀어 올리면 <span class="c-temp">공기 덩어리 ${fmt(tp)} ℃</span>, <span style="color:#7048e8">주변 공기 ${fmt(te)} ℃</span> → `;
+  m+=warmer?'<span class="c-bad">주변보다 따뜻하고 가벼워 계속 상승해요 (불안정)</span>. ':'<span class="c-dew">주변보다 차갑고 무거워 원래 높이로 되돌아가요 (안정)</span>. ';
+  if(st==='stable') m+='<br>연직 운동이 억제되므로, 공기가 강제로 올라가 구름이 생기더라도 위로 자라지 못하고 옆으로 넓게 퍼지는 <span class="c-dew">층운형 구름</span>이 만들어져요.';
+  else if(st==='unstable') m+='<br>연직 운동이 활발해 공기가 높이 솟아오르며 <span class="c-bad">적운형 구름</span>이 만들어지고, 소나기나 뇌우가 내리기 쉬워요.';
+  else m+=sat?'<br>조건부 불안정 대기라도 공기가 <span class="c-bad">포화</span>되면 불안정해져 <span class="c-bad">적운형 구름</span>이 발달해요.':'<br>조건부 불안정 대기에서 <span class="c-dew">불포화</span> 공기는 안정해서 되돌아와요. [포화된 공기 덩어리]를 체크하고 다시 밀어 보세요!';
+  $('a1fb').className='fb '+(warmer?'bad':'info'); $('a1fb').innerHTML=m;
+  a1UI(); mark();
+}
+function a1Pos(){ const a=A1.anim; if(!a) return null; const el=(performance.now()-a.start)/1000; let h, ph;
+  if(el<1.2){ h=500*el/1.2; ph=1; } else if(a.warmer){ const f=Math.min(1,(el-1.2)/2.2); h=500+2500*f; ph=f<1?2:3; } else { const f=Math.min(1,(el-1.2)/1.4); h=500*(1-f); ph=f<1?2:3; }
+  return {h,ph,el,t:20-a.rate*h/1000}; }
+function bubble(c,text,x,y,align,col,size){ c.save(); c.font=`${size||12.5}px ${FONT}`; const w=c.measureText(text).width+12, h=(size||12.5)+9; let bx=align==='right'?x-w:align==='center'?x-w/2:x; c.fillStyle='rgba(255,255,255,.92)'; c.beginPath(); if(c.roundRect) c.roundRect(bx,y-h/2,w,h,6); else c.rect(bx,y-h/2,w,h); c.fill(); c.fillStyle=col; c.textAlign='left'; c.textBaseline='middle'; c.fillText(text,bx+6,y+1); c.restore(); }
+function drawA1(){
+  const st=A1.st, d=da1; d.base(A1.refs); const c=d.ctx;
+  const ep=[[env1(st,0),0],[env1(st,3000),3000]]; d.poly(ep,'#7048e8',3.5);
+  d.label(env1(st,2600),2600,`환경 기온선 (${ST1[st].lapse} ℃/km)`,'#7048e8',10);
+  const p=a1Pos();
+  if(A1.anim){ const a=A1.anim, col=a.sat?C.moist:C.dry; d.poly([[20,0],[20-a.rate*3,3000]],col,2,[6,4]);
+    d.label(20-a.rate*1.6,1600,(a.sat?'습윤':'건조')+` 단열선 (${a.rate} ℃/km)`,col,-10,0,'right');
+    d.hline(500,'#868e96','0.5 km',[2,4]);
+    d.dot(env1(st,500),500,'#7048e8',5); }
+  if(p){ const a=A1.anim; d.dot(p.t,p.h,a.sat?C.moist:C.temp,8,'#fff'); d.label(p.t,p.h,`공기 덩어리 ${fmt(p.t)} ℃`,a.sat?C.moist:C.temp,p.t>12?-12:12,-14,p.t>12?'right':'left');
+    if(p.ph<3) mark(); }
+  /* 하늘 단면 */
+  const k=fitCanvas($('a1scene')), sc=k.c, W=k.W, H=k.H, top=d.T, bot=d.B, Y=h=>bot-(h/3200)*(bot-top);
+  let g=sc.createLinearGradient(0,0,0,H); g.addColorStop(0,st==='unstable'?'#1d3557':'#2b4a7a'); g.addColorStop(1,'#a5d8ff'); sc.fillStyle=g; sc.fillRect(0,0,W,H);
+  sc.font=`11px ${FONT}`; sc.textAlign='left'; for(let km=0;km<=3;km++){ sc.fillStyle='rgba(255,255,255,.8)'; sc.fillText(km+' km',4,Y(km*1000)-3); sc.strokeStyle='rgba(255,255,255,.18)'; sc.beginPath(); sc.moveTo(0,Y(km*1000)); sc.lineTo(W,Y(km*1000)); sc.stroke(); }
+  sc.fillStyle='#5c940d'; sc.fillRect(0,bot,W,H-bot);
+  const cx=W/2;
+  if(p){ const a=A1.anim;
+    if(a.warmer){ /* 적운형 */
+      const base=Math.min(p.h,800), topH=p.h; if(topH>800){ const n=Math.max(2,Math.floor((topH-800)/180)); for(let i=0;i<=n;i++){ const hh=800+(topH-800)*i/n; cloudPuff(sc,cx+Math.sin(i*1.9)*10,Y(hh),26+12*Math.sin(i*1.3+1)+(i===0?14:0),0.95); }
+        sc.fillStyle='rgba(173,181,189,.9)'; sc.fillRect(cx-60,Y(800)-2,120,6);
+        if(p.ph===3){ sc.fillStyle='rgba(255,255,255,.95)'; sc.beginPath(); sc.ellipse(cx,Y(3000),90,16,0,0,Math.PI*2); sc.fill();
+          sc.strokeStyle='rgba(116,192,252,.9)'; sc.lineWidth=1.4; const tt=performance.now()/90; for(let i=0;i<14;i++){ const xx=cx-50+i*7.5, yy=Y(800)+8+((tt+i*11)%40); sc.beginPath(); sc.moveTo(xx,yy); sc.lineTo(xx-3,yy+8); sc.stroke(); } mark(); } }
+      if(p.h>1200) bubble(sc,'적운형 구름 (위로 솟음)',cx-70,Y(1900),'right','#e03131');
+    } else {
+      if(a.st==='stable' && p.ph===3){ /* 층운형 */
+        for(let L=0;L<3;L++){ const yy=Y(1100+L*180); sc.fillStyle=`rgba(241,243,245,${0.9-L*0.15})`; sc.beginPath(); sc.ellipse(cx,yy,W*0.46,11,0,0,Math.PI*2); sc.fill(); }
+        bubble(sc,'층운형 구름 (옆으로 퍼짐)',cx,Y(1700),'center','#1c7ed6'); bubble(sc,'※ 공기가 강제로 상승해 구름이 생길 때',cx,Y(1700)+24,'center','#5c677d',11); }
+      if(a.st==='conditional' && p.ph===3){ bubble(sc,'불포화 공기: 구름이 발달하지 않음',cx,Y(1400),'center','#1c7ed6'); }
+    }
+    /* 공기 덩어리 */
+    const py=Y(p.h)-12; if(a.sat){ cloudPuff(sc,cx,py,13,1); } else { sc.fillStyle='rgba(255,169,77,.92)'; sc.beginPath(); sc.arc(cx,py,12,0,Math.PI*2); sc.fill(); sc.strokeStyle='#fff'; sc.lineWidth=2; sc.stroke(); }
+    /* 연직 운동 화살표 */
+    sc.strokeStyle=a.warmer?'#ff8787':'#74c0fc'; sc.fillStyle=sc.strokeStyle; sc.lineWidth=3; const ax=cx+52;
+    if(p.ph>=2){ const y0=Y(500), y1=a.warmer?Y(1200):Y(80); sc.beginPath(); sc.moveTo(ax,y0); sc.lineTo(ax,y1); sc.stroke(); sc.beginPath(); const dir=a.warmer?-1:1; sc.moveTo(ax,y1); sc.lineTo(ax-7,y1-dir*10); sc.lineTo(ax+7,y1-dir*10); sc.fill();
+      bubble(sc,a.warmer?'계속 상승':'되돌아옴',ax+10,(y0+y1)/2,'left',a.warmer?'#e03131':'#1c7ed6'); }
+  } else { sc.fillStyle='rgba(255,169,77,.92)'; sc.beginPath(); sc.arc(cx,Y(0)-12,12,0,Math.PI*2); sc.fill(); sc.fillStyle='#fff'; sc.font=`12.5px ${FONT}`; sc.textAlign='center'; sc.fillText('공기 덩어리를 밀어 올려 보세요',cx,Y(1600)); }
+  sc.fillStyle='rgba(255,255,255,.92)'; sc.fillRect(6,6,W-12,24); sc.fillStyle=STAB[st].col; sc.font=`13px ${FONT}`; sc.textAlign='center'; sc.fillText(`${STAB[st].n} 대기 (기온 감률 ${ST1[st].lapse} ℃/km)`,W/2,19);
+}
+
+/* =========================================================
+   2단계 : 미리 작도된 기온선으로 안정도 판단
+   ========================================================= */
+const CASES=[
+  {id:'ga',name:'(가) 지점',sub:'교과서 탐구 자료 (0~500 m)',km:false,hMax:540,tMin:7,tMax:19,tTick:0.5,tLabel:1,hTick:50,hLabel:100,refStep:1,pts:[[0,12],[300,15],[500,12.2]],ans:['stable','unstable'],req:true},
+  {id:'na',name:'(나) 지점',sub:'교과서 탐구 자료 (0~500 m)',km:false,hMax:540,tMin:7,tMax:19,tTick:0.5,tLabel:1,hTick:50,hLabel:100,refStep:1,pts:[[0,16],[500,13]],ans:['conditional'],req:true},
+  {id:'c3',name:'맑은 여름 한낮',sub:'지표가 강하게 가열된 날',km:true,hMax:3200,tMin:-15,tMax:35,tTick:2.5,tLabel:5,hTick:500,refStep:5,pts:[[0,32],[1000,20],[3000,8]],ans:['unstable','conditional']},
+  {id:'c4',name:'흐리고 바람 약한 날',sub:'구름이 넓게 덮인 날',km:true,hMax:3200,tMin:-15,tMax:35,tTick:2.5,tLabel:5,hTick:500,refStep:5,pts:[[0,18],[3000,6]],ans:['stable']},
+  {id:'c5',name:'맑은 날 새벽',sub:'지표가 밤새 냉각된 날',km:true,hMax:3200,tMin:-15,tMax:35,tTick:2.5,tLabel:5,hTick:500,refStep:5,pts:[[0,8],[500,11],[3000,-6.5]],ans:['stable','conditional']},
+  {id:'c6',name:'전선 부근 상공',sub:'따뜻한 공기가 찬 공기 위로 올라탄 곳',km:true,hMax:3200,tMin:-15,tMax:35,tTick:2.5,tLabel:5,hTick:500,refStep:5,pts:[[0,20],[1000,12],[1500,14],[3000,9.5]],ans:['conditional','stable','stable']}
+];
+const A2={key:'ga',refs:{dry:true,moist:true,dew:false},st:{},diag:null,done:false};
+CASES.forEach(cs=>{ A2.st[cs.id]={first:cs.ans.map(()=>null),done:cs.ans.map(()=>false),tries:cs.ans.map(()=>0)}; });
+const caseOf=id=>CASES.find(c=>c.id===id);
+const lapseOf=(cs,j)=>{ const [a,ta]=cs.pts[j],[b,tb]=cs.pts[j+1]; return -(tb-ta)/(b-a)*1000; };
+const caseDone=id=>A2.st[id].done.every(Boolean);
+function hLab(cs,h){ return cs.km?(h/1000).toFixed(1)+' km':h+' m'; }
+function a2Select(id){ A2.key=id; const cs=caseOf(id); A2.diag=new Diagram($('a2diag'),cs); a2UI(); mark(); }
+function a2UI(){
+  const cs=caseOf(A2.key), st=A2.st[cs.id];
+  $('a2cases').innerHTML=CASES.map(c=>`<button class="btn ${c.id===A2.key?'':'ghost'}" data-k="${c.id}">${c.name}<span class="st">${caseDone(c.id)?'✓ 판단 완료':c.req?'필수':'추가 사례'}</span></button>`).join('');
+  $('a2cases').querySelectorAll('button').forEach(b=>b.onclick=()=>a2Select(b.dataset.k));
+  $('a2sub').textContent=cs.sub; $('a2title').textContent=`단열선도 — ${cs.name}의 높이별 기온 분포`;
+  const active=st.done.indexOf(false);
+  $('a2layers').innerHTML=cs.ans.map((ans,j)=>{ const a=cs.pts[j][0], b=cs.pts[j+1][0];
+    if(st.done[j]){ const inv=lapseOf(cs,j)<0; return `<div class="layer done"><div class="lt">기층 ${j+1} (${hLab(cs,a)} ~ ${hLab(cs,b)}) → <span style="color:${STAB[ans].col}">${STAB[ans].n}</span></div>
+      <div class="note" style="margin-top:0">기온 감률 ${fmt(lapseOf(cs,j))} ℃/km${inv?' (역전층)':''} · 연직 운동: ${INFO[ans].motion} · 구름: ${INFO[ans].cloud}</div></div>`; }
+    return `<div class="layer" style="${j===active?'border-color:#7048e8':''}"><div class="lt">기층 ${j+1} (${hLab(cs,a)} ~ ${hLab(cs,b)})${j===active?' <span style="color:#7048e8">← 판단할 차례</span>':''}</div>
+      <div class="chips">${Object.keys(STAB).map(s=>`<button class="btn sm ghost" data-j="${j}" data-s="${s}" ${j===active?'':'disabled'}>${STAB[s].n}</button>`).join('')}</div>
+      <div class="fb" id="a2fb${j}" style="margin-top:6px;min-height:0;font-size:13px;${j===active?'':'display:none'}">환경 기온선의 기울기를 비교용 단열선과 비교해 보세요.</div></div>`; }).join('');
+  $('a2layers').querySelectorAll('button[data-j]').forEach(b=>b.onclick=()=>a2Judge(+b.dataset.j,b.dataset.s));
+  const nDone=CASES.filter(c=>caseDone(c.id)).length, extra=CASES.filter(c=>!c.req&&caseDone(c.id)).length;
+  renderMissions('a2m',[
+    {t:'(가)·(나) 교과서 자료의 기층별 안정도 판단하기',done:caseDone('ga')&&caseDone('na')},
+    {t:`추가 관측 사례 2개 이상 판단하기 (${Math.min(extra,2)}/2)`,done:extra>=2},
+    {t:`6개 사례 모두 판단하기 (${nDone}/6)`,done:nDone===6,bonus:true}
+  ]);
+  checkStage(2);
+}
+function a2Judge(j,choice){
+  const cs=caseOf(A2.key), st=A2.st[cs.id], ans=cs.ans[j], L=lapseOf(cs,j); st.tries[j]++;
+  if(st.first[j]==null) st.first[j]=(choice===ans);
+  if(choice===ans){ st.done[j]=true; toast(`⚖️ 기층 ${j+1}: <span class="em">${STAB[ans].n}</span>`);
+    if(caseDone(cs.id)) setTimeout(()=>toast(`🏅 ${cs.name} 판단 완료!`),700);
+    a2UI(); mark(); return; }
+  const fb=$('a2fb'+j); let m='';
+  if(L<0) m='이 기층은 높이 올라갈수록 기온이 <span class="c-acc">높아지는 역전층</span>이에요. 공기 덩어리를 밀어 올리면 주변보다 훨씬 차가워지니 어떤 상태일까요?';
+  else if(choice==='unstable') m='환경 기온선이 <span class="c-dry">건조 단열선</span>보다 더 누워 있나요? 비교용 단열선과 기울기를 다시 비교해 보세요.';
+  else if(choice==='stable') m='환경 기온선이 <span class="c-moist">습윤 단열선</span>보다 더 서 있나요? 기온이 높이에 따라 얼마나 빨리 낮아지는지 다시 비교해 보세요.';
+  else m='환경 기온선이 정말 <span class="c-moist">습윤 단열선</span>과 <span class="c-dry">건조 단열선</span> 사이에 있나요? 다시 비교해 보세요.';
+  if(st.tries[j]>=2) m+=` <span class="c-sky">(힌트: 이 기층의 기온 감률은 ${fmt(L)} ℃/km예요.)</span>`;
+  fb.className='fb bad'; fb.innerHTML=m;
+}
+function drawA2(){
+  if(!A2.diag) A2.diag=new Diagram($('a2diag'),caseOf(A2.key)); const cs=caseOf(A2.key), st=A2.st[cs.id], d=A2.diag; d.base(A2.refs); const c=d.ctx;
+  cs.ans.forEach((ans,j)=>{ const a=cs.pts[j][0], b=cs.pts[j+1][0];
+    if(st.done[j]){ c.fillStyle=STAB[ans].bg; c.fillRect(d.L,d.y(b),d.R-d.L,d.y(a)-d.y(b)); c.font=`12.5px ${FONT}`; c.fillStyle=STAB[ans].col; c.textAlign='right'; c.fillText(`기층 ${j+1}: ${STAB[ans].n} · ${INFO[ans].cloud}`,d.R-8,d.y(b)+15); }
+    else { c.font=`12.5px ${FONT}`; c.fillStyle=C.sub; c.textAlign='right'; c.fillText(`기층 ${j+1}`,d.R-8,d.y(b)+15); }
+    if(j>0) d.hline(a,'#adb5bd',null,[4,4]); });
+  const active=st.done.indexOf(false);
+  if(active>=0 && $('a2cmp').checked){ const [a,ta]=cs.pts[active], b=cs.pts[active+1][0], top=Math.min(cs.hMax,b+(b-a)*0.25);
+    c.fillStyle='rgba(112,72,232,.07)'; c.fillRect(d.L,d.y(b),d.R-d.L,d.y(a)-d.y(b));
+    d.poly([[ta,a],[ta-0.01*(top-a),top]],C.dry,2.5); d.poly([[ta,a],[ta-0.005*(top-a),top]],C.moist,2.5);
+    d.label(ta-0.01*(top-a),top,'건조 단열선',C.dry,-8,8,'right'); d.label(ta-0.005*(top-a),top,'습윤 단열선',C.moist,8,8); }
+  d.poly(cs.pts.map(p=>[p[1],p[0]]),'#7048e8',4);
+  cs.pts.forEach(p=>{ d.dot(p[1],p[0],'#7048e8',5.5,'#fff'); d.label(p[1],p[0],`${fmt(p[1])} ℃`,'#7048e8',10,0); });
+}
+
+/* =========================================================
+   진행 · 해금
+   ========================================================= */
+const stageDone={1:false,2:false};
+function coreDone(n){
+  if(n===1){ const F=A1.flags; return F.stable&&F.unstable&&F.cu&&F.cs; }
+  return caseDone('ga')&&caseDone('na')&&CASES.filter(c=>!c.req&&caseDone(c.id)).length>=2;
+}
+const clearText={1:'절대 안정 대기에서는 연직 운동이 억제되어 층운형 구름이, 절대 불안정 대기에서는 연직 운동이 활발해 적운형 구름이 만들어져요. 조건부 불안정 대기는 공기가 포화되었을 때만 불안정해진다는 것도 확인했어요! 이제 단열선도로 대기 안정도를 판단해 봅시다.',
+  2:'단열선도에 그려진 환경 기온선을 건조·습윤 단열선과 비교해 대기 안정도를 판단할 수 있게 되었어요! 미션 성공 리포트에서 수행 과정 평가를 확인해 보세요.'};
+function checkStage(n){
+  if(stageDone[n] || !coreDone(n)) { refreshTabs(); return; }
+  stageDone[n]=true; refreshTabs();
+  setTimeout(()=>{
+    $('clearTitle').textContent=n===2?'모든 단계 완료! 🎉':'1단계 완료!'; $('clearMsg').textContent=clearText[n];
+    $('clearGo').textContent=n===2?'미션 성공 리포트 보기 ▶':'다음 단계로 ▶'; $('clearGo').onclick=()=>{ $('clearModal').classList.add('hide'); showStage(n+1); };
+    const m=$('clearModal'); m.classList.remove('hide'); const md=m.querySelector('.modal'); md.querySelectorAll('.confetti').forEach(x=>x.remove());
+    for(let i=0;i<40;i++){ const s=document.createElement('i'); s.className='confetti'; s.style.left=Math.random()*100+'%'; s.style.background=['#ffd43b','#8ce99a','#74c0fc','#ff8787','#b197fc'][i%5]; s.style.animationDelay=Math.random()*0.8+'s'; md.appendChild(s); }
+  }, n===1?3600:1200);
+}
+function unlocked(n){ return n===1 || stageDone[n-1]; }
+function refreshTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{ const n=+t.dataset.s; t.classList.toggle('locked',!unlocked(n)); t.classList.toggle('done',n<3&&stageDone[n]); t.classList.toggle('active',n===curStage); });
+  const k=[1,2].filter(n=>stageDone[n]).length; $('xpFill').style.width=(k/2*100)+'%'; $('xpText').textContent=`진행도 ${k} / 2 단계`;
+}
+function showStage(n){
+  if(!unlocked(n)){ toast('🔒 이전 단계의 미션을 먼저 완료하세요.'); return; }
+  curStage=n; document.querySelectorAll('.stage').forEach(s=>s.classList.toggle('show',s.id==='stage'+n)); refreshTabs();
+  if(n===3) renderReport();
+  window.scrollTo({top:0,behavior:'smooth'}); mark();
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showStage(+t.dataset.s));
+$('clearStay').onclick=()=>$('clearModal').classList.add('hide');
+
+/* =========================================================
+   미션 성공 리포트
+   ========================================================= */
+function evaluate(){
+  const R={stages:[],paras:[],improve:[]}, F=A1.flags;
+  const s1=(F.stable?10:0)+(F.unstable?10:0)+(F.cu?10:0)+(F.cs?10:0);
+  const nDone=CASES.filter(c=>caseDone(c.id)).length, total=CASES.reduce((s,c)=>s+c.ans.length,0);
+  const firstOk=CASES.reduce((s,c)=>s+A2.st[c.id].first.filter(x=>x===true).length,0);
+  const s2=nDone/6*20, s3=firstOk/total*40;
+  R.stages.push({name:'연직 운동·구름 탐구',sc:s1,max:40},{name:'관측 사례 판단 완료',sc:s2,max:20},{name:'첫 시도 판단 정확도',sc:s3,max:40});
+  let t1='';
+  t1+=(F.stable&&F.unstable)?'절대 안정 대기와 절대 불안정 대기에서 공기 덩어리를 밀어 올려, 주변 공기보다 차가운 공기 덩어리는 되돌아오고(<span class="c-dew">연직 운동 억제</span>) 따뜻한 공기 덩어리는 계속 상승한다(<span class="c-bad">연직 운동 활발</span>)는 것을 확인했어요. ':'세 가지 대기 상태 중 아직 실험하지 않은 상태가 있어요. ';
+  t1+=(F.stable&&F.unstable)?'그 결과 안정한 대기에서는 옆으로 퍼지는 <span class="c-dew">층운형 구름</span>, 불안정한 대기에서는 위로 솟는 <span class="c-bad">적운형 구름</span>이 생긴다는 차이를 관찰했어요. ':'';
+  t1+=(F.cu&&F.cs)?'조건부 불안정 대기에서 불포화 공기와 포화 공기를 비교해, 공기가 포화될 때만 불안정해져 적운형 구름이 발달한다는 점까지 탐구했어요.':'조건부 불안정 대기에서 포화 공기와 불포화 공기를 비교하는 실험이 아직 남아 있어요.';
+  R.paras.push({name:'1단계 안정도별 연직 운동과 구름',t:t1});
+  let t2=nDone?`관측 사례 ${nDone}개의 환경 기온선을 건조·습윤 단열선과 비교해 기층별 대기 안정도를 판단했어요. 전체 ${total}개 기층 중 <span class="c-acc">${firstOk}개</span>를 첫 시도에 맞혔어요. `:'아직 판단을 완료한 사례가 없어요. ';
+  if(caseDone('ga')) t2+='(가) 지점에서는 아래쪽 역전층이 <span class="c-dew">절대 안정</span>, 위쪽이 <span class="c-bad">절대 불안정</span>임을 찾아냈어요. ';
+  if(caseDone('na')) t2+='(나) 지점은 환경 기온선이 두 단열선 사이에 있어 <span class="c-acc">조건부 불안정</span>임을 판단했어요. ';
+  const missed=CASES.filter(c=>A2.st[c.id].first.some(x=>x===false));
+  if(missed.length) t2+=`${missed.map(c=>c.name).join(', ')}에서는 다시 생각해 고친 기층이 있었어요.`; else if(nDone) t2+='판단한 모든 기층을 한 번에 맞혔어요!';
+  R.paras.push({name:'2단계 단열선도로 안정도 판단',t:t2});
+  if(!F.stable) R.improve.push({s:1,pt:10,m:'1단계에서 절대 안정 대기의 공기 덩어리를 밀어 올려 보세요.'});
+  if(!F.unstable) R.improve.push({s:1,pt:10,m:'1단계에서 절대 불안정 대기의 공기 덩어리를 밀어 올려 보세요.'});
+  if(!F.cu) R.improve.push({s:1,pt:10,m:'1단계 조건부 불안정 대기에서 불포화 공기 덩어리를 밀어 올려 보세요.'});
+  if(!F.cs) R.improve.push({s:1,pt:10,m:'1단계 조건부 불안정 대기에서 포화 공기 덩어리를 밀어 올려 보세요.'});
+  if(nDone<6) R.improve.push({s:2,pt:+(20-s2).toFixed(1),m:`2단계에서 아직 판단하지 않은 관측 사례 ${6-nDone}개를 판단하세요.`});
+  if(firstOk<total){ const ndone=CASES.filter(c=>!caseDone(c.id)).length; R.improve.push({s:2,pt:+(40-s3).toFixed(1),m:missed.length?`2단계에서 [이 사례 다시 풀기]로 ${missed.map(c=>c.name).join(', ')}을 다시 풀어 첫 시도에 맞혀 보세요.`+(ndone?' 남은 사례도 첫 시도에 맞혀 보세요.':''):'2단계에서 남은 사례의 기층을 첫 시도에 맞혀 보세요.'}); }
+  R.total=Math.round(s1+s2+s3);
+  R.grade=R.total>=90?'A':R.total>=80?'B':R.total>=70?'C':R.total>=60?'D':'F';
+  const nextCut={F:60,D:70,C:80,B:90}[R.grade]; R.next=nextCut?nextCut-R.total:0;
+  R.improve=R.improve.filter(x=>x.pt>0.05).sort((a,b)=>b.pt-a.pt);
+  return R;
+}
+const gradeCol={A:'#2b8a3e',B:'#1c7ed6',C:'#f08c00',D:'#e8590c',F:'#e03131'};
+const gradeMsg={A:'대기 안정도에 따른 공기의 연직 운동과 구름 형태를 정확히 이해하고, 단열선도로 대기 안정도를 판단하는 능력이 매우 뛰어나요.',B:'대기 안정도의 의미와 판단 기준을 잘 이해했어요. 아래 보완 미션을 수행하면 A 등급에 도달할 수 있어요.',C:'기본 개념은 이해했지만 판단의 정확도를 더 높일 필요가 있어요. 아래 보완 미션을 차근차근 수행해 보세요.',D:'필수 미션은 완료했지만 탐구 과정의 여러 부분이 부족해요. 아래 안내된 활동만 골라 다시 수행해 보세요.',F:'탐구 과정을 더 보완해야 해요. 아래 안내된 활동을 수행하면 등급을 올릴 수 있어요.'};
+function renderReport(){
+  const R=evaluate(), d=new Date().toLocaleDateString('ko-KR');
+  let h=`<div class="rep-head"><div class="t"><div class="k">MISSION COMPLETE · 대기 안정도 판정실</div><h2>🏆 미션 성공 리포트</h2><div class="who">연구원 ${playerName} · ${d}</div></div>
+    <div class="grade"><div><div class="g" style="color:${gradeCol[R.grade]}">${R.grade}</div><div class="s">${R.total} / 100점</div></div></div></div><div class="rep-body">`;
+  h+=`<div class="rep-sec"><h3>📊 평가 항목별 점수</h3><div class="bars">${R.stages.map(s=>`<div class="bar"><span>${s.name}</span><div class="track"><i style="width:${s.sc/s.max*100}%"></i></div><span class="c-sky">${fmt(s.sc,1)} / ${s.max}</span></div>`).join('')}</div>
+    <div class="gradeinfo">평가 기준: A 90점 이상 · B 80점 이상 · C 70점 이상 · D 60점 이상 · F 60점 미만</div></div>`;
+  h+=`<div class="rep-sec"><h3>📝 수행 과정 피드백</h3><div class="fbpara"><span class="st" style="color:${gradeCol[R.grade]}">종합 평가 — ${R.grade} 등급</span>${gradeMsg[R.grade]}</div>${R.paras.map(s=>`<div class="fbpara"><span class="st">${s.name}</span>${s.t}</div>`).join('')}</div>`;
+  h+=`<div class="rep-sec"><h3>🚀 등급 올리기 보완 미션</h3>`;
+  if(!R.improve.length) h+=`<div class="fbpara">모든 수행 과정을 완벽하게 마쳤어요! 더 보완할 활동이 없어요. 🎉</div>`;
+  else { h+=R.grade==='A'?`<div class="note" style="margin-bottom:8px">이미 A 등급이에요! 아래 활동은 만점을 위한 선택 활동이에요.</div>`:`<div class="note" style="margin-bottom:8px">다음 등급까지 <span class="c-acc">${R.next}점</span>이 필요해요. 부족한 수행 과정만 골라 다시 해 보세요. 수행 후 이 탭을 다시 열면 평가가 갱신돼요.</div>`;
+    h+=`<ul class="improve">${R.improve.map(x=>`<li><span class="pt">+${fmt(x.pt,1)}점</span><span class="msg">${x.m}</span><button class="btn sm" data-go="${x.s}">${x.s}단계로 이동</button></li>`).join('')}</ul>`; }
+  h+=`</div><div class="rep-sec"><h3>📒 나의 탐구 기록</h3>`;
+  h+=`<div class="fbpara"><span class="st">1단계 정리 노트</span>${Object.keys(ST1).map(k=>`<span style="color:${STAB[k].col}">${STAB[k].n}</span> — 연직 운동: ${A1.seen[k]?INFO[k].motion:'미탐구'}, 구름: ${A1.seen[k]?INFO[k].cloud:'미탐구'}`).join('<br>')}</div>`;
+  h+=`<div class="fbpara"><span class="st">2단계 판단 기록</span>${CASES.filter(c=>caseDone(c.id)).map(c=>`${c.name}: `+c.ans.map((a,j)=>`기층 ${j+1} <span style="color:${STAB[a].col}">${STAB[a].n}</span>${A2.st[c.id].first[j]?'':'(재시도)'}`).join(', ')).join('<br>')||'판단 기록 없음'}</div></div>`;
+  h+=`<div class="rep-actions"><button class="btn green" id="dlPng">🖼️ 리포트 이미지(PNG) 저장</button><button class="btn" id="dlPdf">📄 PDF로 저장(인쇄)</button></div>`;
+  h+=`<div class="note" style="text-align:center">EARTH LJY · earthljy@ai.jne.kr</div></div>`;
+  $('report').innerHTML=h;
+  $('report').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showStage(+b.dataset.go));
+  $('dlPng').onclick=()=>downloadPNG(R); $('dlPdf').onclick=()=>window.print();
+}
+function wrapLines(c,text,maxW){ const out=[]; text.split('\n').forEach(par=>{ let line=''; for(const ch of par){ const t=line+ch; if(c.measureText(t).width>maxW && line){ let cut=line.lastIndexOf(' '); if(cut>line.length*0.6){ out.push(line.slice(0,cut)); line=line.slice(cut+1)+ch; } else { out.push(line); line=ch; } } else line=t; } out.push(line); }); return out; }
+function downloadPNG(R){
+  const W=1240, pad=56, inner=W-pad*2, cv=document.createElement('canvas'), c=cv.getContext('2d');
+  const strip=s=>s.replace(/<br>/g,'\n').replace(/<[^>]+>/g,'');
+  c.font=`19px ${FONT}`;
+  const blocks=[{h:'종합 평가 — '+R.grade+' 등급',t:gradeMsg[R.grade],col:gradeCol[R.grade]}].concat(R.paras.map(s=>({h:s.name,t:strip(s.t),col:'#1d4e89'})));
+  const imp=R.improve.map(x=>'· '+x.m+'  (+'+fmt(x.pt,1)+'점)');
+  let est=330+R.stages.length*44+60; blocks.forEach(b=>{ est+=40+wrapLines(c,b.t,inner-32).length*31+24; }); est+=80; imp.forEach(t=>{est+=wrapLines(c,t,inner-20).length*30+8;}); est+=120;
+  cv.width=W; cv.height=est;
+  c.fillStyle='#fff'; c.fillRect(0,0,W,est);
+  let g=c.createLinearGradient(0,0,W,0); g.addColorStop(0,'#0b2545'); g.addColorStop(1,'#3a7ca5'); c.fillStyle=g; c.fillRect(0,0,W,230);
+  c.textBaseline='alphabetic'; c.fillStyle='#ffd43b'; c.font=`18px ${FONT}`; c.fillText('MISSION COMPLETE · 대기 안정도 판정실',pad,62);
+  c.fillStyle='#fff'; c.font=`40px ${FONT}`; c.fillText('미션 성공 리포트',pad,116);
+  c.fillStyle='#d0ebff'; c.font=`20px ${FONT}`; c.fillText('연구원 '+playerName+'  ·  '+new Date().toLocaleDateString('ko-KR'),pad,160);
+  c.font=`16px ${FONT}`; c.fillText('지구시스템과학 · 대기 안정도 (단열선도 해석)',pad,196);
+  try{ c.fillStyle='#fff'; c.beginPath(); c.roundRect?c.roundRect(W-pad-300,40,130,150,16):c.rect(W-pad-300,40,130,150); c.fill(); c.drawImage(logoImg,W-pad-292,46,114,114); c.fillStyle='#1d4e89'; c.font=`12px ${FONT}`; c.textAlign='center'; c.fillText('earthljy@ai.jne.kr',W-pad-235,180); c.textAlign='left'; }catch(e){}
+  c.fillStyle='#fff'; c.beginPath(); c.arc(W-pad-75,115,75,0,Math.PI*2); c.fill();
+  c.fillStyle=gradeCol[R.grade]; c.font=`72px ${FONT}`; c.textAlign='center'; c.fillText(R.grade,W-pad-75,135); c.fillStyle='#5c677d'; c.font=`17px ${FONT}`; c.fillText(R.total+' / 100점',W-pad-75,165); c.textAlign='left';
+  let y=280; c.fillStyle='#13315c'; c.font=`24px ${FONT}`; c.fillText('평가 항목별 점수',pad,y); y+=22;
+  R.stages.forEach(s=>{ y+=40; c.fillStyle='#212529'; c.font=`18px ${FONT}`; c.fillText(s.name,pad,y); c.fillStyle='#f1f3f5'; c.fillRect(pad+330,y-16,inner-450,18); const bg=c.createLinearGradient(pad+330,0,pad+330+inner-450,0); bg.addColorStop(0,'#4dabf7'); bg.addColorStop(1,'#1d4e89'); c.fillStyle=bg; c.fillRect(pad+330,y-16,(inner-450)*s.sc/s.max,18); c.fillStyle='#1d4e89'; c.fillText(fmt(s.sc,1)+' / '+s.max,pad+inner-100,y); });
+  y+=60; c.fillStyle='#13315c'; c.font=`24px ${FONT}`; c.fillText('수행 과정 피드백',pad,y); y+=16;
+  blocks.forEach(b=>{ c.font=`19px ${FONT}`; const lines=wrapLines(c,b.t,inner-32); const bh=40+lines.length*31+10; c.fillStyle='#f8f9fa'; c.fillRect(pad,y,inner,bh); c.fillStyle=b.col; c.fillRect(pad,y,5,bh); c.font=`20px ${FONT}`; c.fillText(b.h,pad+18,y+32); c.fillStyle='#212529'; c.font=`19px ${FONT}`; lines.forEach((l,i)=>c.fillText(l,pad+18,y+66+i*31)); y+=bh+14; });
+  y+=30; c.fillStyle='#13315c'; c.font=`24px ${FONT}`; c.fillText('등급 올리기 보완 미션',pad,y); y+=14;
+  c.font=`18px ${FONT}`; if(!imp.length){ y+=34; c.fillStyle='#2b8a3e'; c.fillText('모든 수행 과정을 완벽하게 마쳤어요!',pad,y); }
+  imp.forEach(t=>{ const lines=wrapLines(c,t,inner-20); lines.forEach(l=>{ y+=30; c.fillStyle='#8a5a00'; c.fillText(l,pad+10,y); }); y+=8; });
+  y+=50; c.fillStyle='#868e96'; c.font=`15px ${FONT}`; c.textAlign='center'; c.fillText('EARTH LJY · earthljy@ai.jne.kr',W/2,y);
+  const out=document.createElement('canvas'); out.width=W; out.height=Math.min(est,y+40); out.getContext('2d').drawImage(cv,0,0);
+  const a=document.createElement('a'); a.download=`대기안정도_미션성공_${playerName}.png`; a.href=out.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+  toast('🖼️ 리포트 이미지를 저장했어요.');
+}
+
+/* =========================================================
+   메인 루프 · 시작
+   ========================================================= */
+function loop(){ if(dirty){ dirty=false; if(curStage===1) drawA1(); else if(curStage===2) drawA2(); } requestAnimationFrame(loop); }
+window.addEventListener('resize',mark);
+$('startBtn').onclick=()=>{ const v=$('nameIn').value.trim(); playerName=v||'연구원'; $('playerName').textContent='👤 '+playerName+' 연구원'; $('intro').classList.add('hide'); mark(); };
+$('nameIn').addEventListener('keydown',e=>{ if(e.key==='Enter') $('startBtn').click(); });
+makeRefToggles('a1refs',A1.refs); makeRefToggles('a2refs',A2.refs);
+$('a1push').onclick=a1Push;
+$('a2cmp').onchange=mark;
+$('a2reset').onclick=()=>{ const cs=caseOf(A2.key); A2.st[cs.id]={first:cs.ans.map(()=>null),done:cs.ans.map(()=>false),tries:cs.ans.map(()=>0)}; toast(cs.name+' 판단을 처음부터 다시 시작해요.'); a2UI(); mark(); };
+a1UI(); a2Select('ga'); refreshTabs();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
